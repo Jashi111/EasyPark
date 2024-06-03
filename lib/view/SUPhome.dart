@@ -1,3 +1,4 @@
+import 'package:easypark/view/AttendanceSearch.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' as flutter_map;
 import 'package:latlong2/latlong.dart';
@@ -87,7 +88,11 @@ class _MyHomePageState extends State<SupHomePage> {
           print('Home Page tapped');
           break;
         case 1:
-          print('My Bookings tapped');
+          print('Attendance tapped');
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AttendanceSearch()),
+          );
           break;
         case 2:
           print('Rent Parking Spot tapped');

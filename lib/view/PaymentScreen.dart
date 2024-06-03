@@ -1,4 +1,5 @@
 import 'package:easypark/view/QrCodePage.dart';
+import 'package:easypark/view/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easypark/view/ReservationDialog.dart';
@@ -82,11 +83,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
       });
       print('Reservation saved successfully with ID: ${reservationRef.id}');
 
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   const SnackBar(
-      //     content: Text('Reservation saved successfully.'),
-      //   ),
-      // );
       _showQRCodeDialog(reservation);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -122,8 +118,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             onPressed: () {
               Navigator.of(context).pop(); // Close the dialog
               Navigator.of(context).pop(); // Close the reservation dialog
-              Navigator.of(context).popUntil((route) => route.isFirst);
-              //_navigateToQRDisplayPage(reservationData); // Navigate to QR display page
+              Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const MyHomePage()));
             },
             child: const Text('Ok'),
           ),
@@ -148,182 +143,204 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Payment'),
+        backgroundColor: Colors.teal,
       ),
-      body: Form(
-        key: _formKey,
-        child: Column(
-          children: <Widget>[
-            // Card type selection using RadioListTile for better UX
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                SizedBox(
-                  width: 150, // Adjust width as needed
-                  child: RadioListTile(
-                    title: const Text('Visa'),
-                    value: "Visa",
-                    groupValue: _cardType,
-                    onChanged: _onCardTypeSelected,
-                  ),
+                const Text(
+                  'Select Card Type',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal),
                 ),
-                SizedBox(
-                  width: 150, // Adjust width as needed
-                  child: RadioListTile(
-                    title: const Text('MasterCard'),
-                    value: "MasterCard",
-                    groupValue: _cardType,
-                    onChanged: _onCardTypeSelected,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: <Widget>[
+                    Flexible(
+                      child: RadioListTile(
+                        title: const Text('Visa'),
+                        value: "Visa",
+                        groupValue: _cardType,
+                        onChanged: _onCardTypeSelected,
+                        activeColor: Colors.teal,
+                      ),
+                    ),
+                    Flexible(
+                      child: RadioListTile(
+                        title: const Text('MasterCard'),
+                        value: "MasterCard",
+                        groupValue: _cardType,
+                        onChanged: _onCardTypeSelected,
+                        activeColor: Colors.teal,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Card Holder Name',
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.teal),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value!.isEmpty) {
+                      return 'Please enter cardholder name';
+                    }
+                    return null;
+                  },
+                  onSaved: (value) => _cardHolderName = value!,
+                  initialValue: _cardHolderName,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Card Number',
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.teal),
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value!.isEmpty) {
+                      return 'Please enter card number';
+                    }
+                    // Add more robust validation based on card type (e.g., length)
+                    return null;
+                  },
+                  onSaved: (value) => _cardNumber = value!,
+                  initialValue: _cardNumber,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: TextFormField(
+                        decoration: const InputDecoration(
+                          labelText: 'Expiry Month (MM)',
+                          border: OutlineInputBorder(),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.teal),
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value!.isEmpty) {
+                            return 'Please enter expiry month';
+                          }
+                          int month = int.tryParse(value) ?? 0;
+                          if (month < 1 || month > 12) {
+                            return 'Invalid month (1-12)';
+                          }
+                          return null;
+                        },
+                        onSaved: (value) => _expiryMonth = value!,
+                        initialValue: _expiryMonth,
+                        maxLength: 2,
+                      ),
+                    ),
+                    const SizedBox(width: 10.0),
+                    Expanded(
+                      child: TextFormField(
+                        decoration: const InputDecoration(
+                          labelText: 'Expiry Year (YYYY)',
+                          border: OutlineInputBorder(),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.teal),
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value!.isEmpty) {
+                            return 'Please enter expiry year';
+                          }
+                          int year = int.tryParse(value) ?? 0;
+                          if (year < DateTime.now().year) {
+                            return 'Invalid year (must be future)';
+                          }
+                          return null;
+                        },
+                        onSaved: (value) => _expiryYear = value!,
+                        initialValue: _expiryYear,
+                        maxLength: 4,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'CVV',
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.teal),
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value!.isEmpty) {
+                      return 'Please enter CVV';
+                    }
+                    // Add more robust validation based on card type (e.g., length)
+                    return null;
+                  },
+                  onSaved: (value) => _cvv = value!,
+                  initialValue: _cvv,
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    border: OutlineInputBorder(),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.teal),
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value!.isEmpty) {
+                      return 'Please enter amount';
+                    }
+                    // Add more validation if required
+                    return null;
+                  },
+                  onSaved: (value) => _amount = value!,
+                  initialValue: _amount, // Set initial value
+                ),
+                const SizedBox(height: 20),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (_formKey.currentState!.validate()) {
+                        saveReservation();
+                        _formKey.currentState!.reset();
+                      }
+                    },
+                    child: const Text('Proceed to Pay'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
+                    ),
                   ),
                 ),
               ],
             ),
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Card Holder Name',
-              ),
-              validator: (value) {
-                if (value!.isEmpty) {
-                  return 'Please enter cardholder name';
-                }
-                return null;
-              },
-              onSaved: (value) => _cardHolderName = value!,
-              initialValue: _cardHolderName,
-            ),
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Card Number',
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value!.isEmpty) {
-                  return 'Please enter card number';
-                }
-                // Add more robust validation based on card type (e.g., length)
-                return null;
-              },
-              onSaved: (value) => _cardNumber = value!,
-              initialValue: _cardNumber,
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                Flexible(
-                  child: TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: 'Expiry Month (MM)',
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Please enter expiry month';
-                      }
-                      int month = int.tryParse(value) ?? 0;
-                      if (month < 1 || month > 12) {
-                        return 'Invalid month (1-12)';
-                      }
-                      return null;
-                    },
-                    onSaved: (value) => _expiryMonth = value!,
-                    initialValue: _expiryMonth,
-                    maxLength: 2,
-                  ),
-                ),
-                const SizedBox(width: 10.0),
-                Flexible(
-                  child: TextFormField(
-                    decoration: const InputDecoration(
-                      labelText: 'Expiry Year (YYYY)',
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value!.isEmpty) {
-                        return 'Please enter expiry year';
-                      }
-                      int year = int.tryParse(value) ?? 0;
-                      if (year < DateTime.now().year) {
-                        return 'Invalid year (must be future)';
-                      }
-                      return null;
-                    },
-                    onSaved: (value) => _expiryYear = value!,
-                    initialValue: _expiryYear,
-                    maxLength: 4,
-                  ),
-                ),
-              ],
-            ),
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'CVV',
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value!.isEmpty) {
-                  return 'Please enter CVV';
-                }
-                // Add more robust validation based on card type (e.g., length)
-                return null;
-              },
-              onSaved: (value) => _cvv = value!,
-              initialValue: _cvv,
-            ),
-            TextFormField(
-              decoration: const InputDecoration(
-                labelText: 'Amount',
-              ),
-              keyboardType: TextInputType.number,
-              validator: (value) {
-                if (value!.isEmpty) {
-                  return 'Please enter amount';
-                }
-                // Add more validation if required
-                return null;
-              },
-              onSaved: (value) => _amount = value!,
-              initialValue: _amount, // Set initial value
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                // if (_formKey.currentState!.validate()) {
-                //   // Send payment details to secure payment gateway (simulate here)
-                //   // **IMPORTANT: Never store sensitive card information directly!**
-                //   // Use a secure payment gateway or service for tokenization/encryption.
-                //   print("Payment details (for simulation only, do not store!): "
-                //       "$_cardType, $_cardHolderName, $_cardNumber, $_expiryMonth/$_expiryYear, $_cvv");
-                //   // Show success or error message based on gateway response (simulated)
-                //   ScaffoldMessenger.of(context).showSnackBar(
-                //     const SnackBar(
-                //       content: Text(
-                //         'Payment processing simulated. Please check gateway response.',
-                //       ),
-                //     ),
-                //   );
-                // }
-
-                  if (_formKey.currentState!.validate()) {
-                    saveReservation();
-                    _formKey.currentState!.reset();
-                  }
-                },
-              child: const Text('Proceed to Pay'),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
-
-// void main() {
-//   runApp(const MaterialApp(
-//     home: PaymentScreen(),
-//   ));
-// }

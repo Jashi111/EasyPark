@@ -1,44 +1,31 @@
+import 'package:easypark/view/SUPhome.dart';
 import 'package:easypark/view/UserReg.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Import FirebaseAuth
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import FirebaseFirestore
 import 'package:easypark/view/home_screen.dart';
-import 'package:easypark/view/parkingSpotView_NOTUSE.dart';
+//import 'package:easypark/view/parkingSpotView_NOTUSE.dart';
 
 final formKey = GlobalKey<FormState>();
 
 class AuthController {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final Map<String, Map<String, String>> users = {
+    "user@gmail.com": {"password": "User", "role": "User"},
+    "admin@gmail.com": {"password": "Admin", "role": "Supervisor"},
+  };
 
-  // Method to authenticate user using Firebase Authentication
+  // Method to authenticate user using hardcoded credentials
   Future<bool> authenticateUser(String email, String password) async {
-    try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      return userCredential.user != null;
-    } catch (e) {
-      print("Error authenticating user: $e");
-      return false;
+    if (users.containsKey(email) && users[email]?['password'] == password) {
+      return true;
     }
+    return false;
   }
 
-  // Method to get user role from Firestore
+  // Method to get user role from hardcoded credentials
   Future<String?> getUserRole(String email) async {
-    try {
-      DocumentSnapshot userSnapshot = await _firestore
-          .collection('users')
-          .where('email', isEqualTo: email)
-          .get()
-          .then((value) => value.docs.first);
-
-      return userSnapshot.get('userRole');
-    } catch (e) {
-      print("Error getting user role: $e");
-      return null;
+    if (users.containsKey(email)) {
+      return users[email]?['role'];
     }
+    return null;
   }
 }
 
@@ -169,12 +156,12 @@ class _LoginState extends State<Login> {
                 if (userRole == 'User') {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => ParkingSpotRegistration()),
+                    MaterialPageRoute(builder: (context) => const MyHomePage()),
                   );
-                } else {
+                } else if (userRole == 'Supervisor') {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => MyHomePage()),
+                    MaterialPageRoute(builder: (context) => const SupHomePage()),
                   );
                 }
               } else {

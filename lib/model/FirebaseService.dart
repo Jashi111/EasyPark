@@ -12,153 +12,89 @@ class FirebaseService {
     final snapshot = await collection.get();
 
     return snapshot.docs.map((doc) {
-      final locationString = doc.data()['Location'] as String;
-      final latLngStrings = locationString.split(', ');
-      final latitude = double.parse(latLngStrings[0]);
-      final longitude = double.parse(latLngStrings[1]);
-      return LatLng(latitude, longitude);
-    }).toList();
-  }
+      final data = doc.data();
+      if (data == null || !data.containsKey('Location')) {
+        print('Document ${doc.id} does not contain "Location" field or is null');
+        return null;  // Skip this document
+      }
 
-  //  static Future<void> clearExpiredReservations(BuildContext context) async {
-  //   final now = DateTime.now();
-  //
-  //   // Query for reservations where the end date and time are before the current time
-  //   final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-  //       .collection('parkingReserve')
-  //       .where('endDate', isLessThan: now.toIso8601String())
-  //       .get();
-  //
-  //   // Iterate over the query snapshot and prompt the user before deleting each expired reservation
-  //   for (QueryDocumentSnapshot doc in querySnapshot.docs) {
-  //     bool? deleteConfirmed = await _showDeleteConfirmationDialog(context,"Your Reservation time has been exceeded.Do you prefer to clear the reservation spot?");
-  //     if (deleteConfirmed ?? false) {
-  //       await doc.reference.delete();
-  //     }
-  //   }
-  // }
-  // static Future<bool?> _showDeleteConfirmationDialog(
-  //     BuildContext context, String message) async {
-  //   return await showDialog<bool>(
-  //     context: context,
-  //     builder: (BuildContext context) {
-  //       return AlertDialog(
-  //         title: const Text("Confirm To Clear Reservation"),
-  //         content: Text(message),
-  //         actions: <Widget>[
-  //           TextButton(
-  //             onPressed: () {
-  //               Navigator.of(context).pop(false); //not delete
-  //             },
-  //             child: const Text("No"),
-  //           ),
-  //           TextButton(
-  //             onPressed: () {
-  //               Navigator.of(context).pop(true); // Yes, delete
-  //             },
-  //             child: const Text("Yes"),
-  //           ),
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
+      final locationString = data['Location'] as String?;
+      if (locationString == null) {
+        print('Location field in document ${doc.id} is null');
+        return null;  // Skip this document
+      }
+
+      final latLngStrings = locationString.split(', ');
+      if (latLngStrings.length != 2) {
+        print('Invalid Location format in document ${doc.id}');
+        return null;  // Skip this document
+      }
+
+      final latitude = double.tryParse(latLngStrings[0]);
+      final longitude = double.tryParse(latLngStrings[1]);
+      if (latitude == null || longitude == null) {
+        print('Invalid latitude or longitude in document ${doc.id}');
+        return null;  // Skip this document
+      }
+
+      return LatLng(latitude, longitude);
+    }).whereType<LatLng>().toList();  // Filter out null values
+  }
 
   static Future<void> clearExpiredReservations(BuildContext context) async {
     final now = DateTime.now();
 
-    // Query for reservations where the end date and time are before the current time
-    final QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+    final querySnapshot = await FirebaseFirestore.instance
         .collection('parkingReserve')
         .where('endDate', isLessThan: now.toIso8601String())
         .get();
 
-    // Iterate over the query snapshot and add late charges to each expired reservation
     for (QueryDocumentSnapshot doc in querySnapshot.docs) {
       final reservationData = doc.data() as Map<String, dynamic>;
-      final String areaId = reservationData['areaId'];
-      final Timestamp endDateTimestamp = reservationData['endDate'];
-      final DateTime endDate = endDateTimestamp.toDate();
+      final String? areaId = reservationData['areaId'] as String?;
+      final Timestamp? endDateTimestamp = reservationData['endDate'] as Timestamp?;
 
+      if (areaId == null || endDateTimestamp == null) {
+        print('Missing areaId or endDate in reservation document ${doc.id}');
+        continue;  // Skip this document
+      }
+
+      final DateTime endDate = endDateTimestamp.toDate();
       final parkingSpotDoc = await FirebaseFirestore.instance
           .collection('parkingSpot')
           .doc(areaId)
           .get();
 
-      if (parkingSpotDoc.exists) {
-        final parkingSpotData = parkingSpotDoc.data() as Map<String, dynamic>;
-        final lateChargeRate = parkingSpotData['price'];
-        final lateChargeAmount = calculateLateCharge(now, endDate, lateChargeRate);
-
-        // Update reservation document to include late charge amount
-        await doc.reference.update({
-          'lateCharge': lateChargeAmount,
-          'lateChargeRate': lateChargeRate,
-        });
-
-        // Display popup message to user about late payment
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Your parking time has exceeded. Late payment will apply now.'),
-          ),
-        );
+      if (!parkingSpotDoc.exists) {
+        print('Parking spot document ${areaId} does not exist');
+        continue;  // Skip this document
       }
+
+      final parkingSpotData = parkingSpotDoc.data() as Map<String, dynamic>;
+      final double? lateChargeRate = parkingSpotData['price'] as double?;
+
+      if (lateChargeRate == null) {
+        print('Missing price in parking spot document ${areaId}');
+        continue;  // Skip this document
+      }
+
+      final lateChargeAmount = calculateLateCharge(now, endDate, lateChargeRate);
+
+      await doc.reference.update({
+        'lateCharge': lateChargeAmount,
+        'lateChargeRate': lateChargeRate,
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Your parking time has exceeded. Late payment will apply now.'),
+        ),
+      );
     }
   }
 
-  // Function to calculate late charge based on current time, end time, and late charge rate
   static double calculateLateCharge(DateTime currentTime, DateTime endTime, double lateChargeRate) {
     final lateHours = currentTime.difference(endTime).inHours;
     return lateHours * lateChargeRate;
   }
 }
-
-
-
-
-
-
-  // static Future<String?> getAreaIdForLocation(String documentId) async {
-  //   final snapshot = await _firestore.collection('parkingSpot').doc(documentId).get();
-  //   if (snapshot.exists) {
-  //     return snapshot.get('areaId') as String?;
-  //   } else {
-  //     return null;
-  //   }
-  // }
-
-
-// class AuthController {
-//   final FirebaseAuth _auth = FirebaseAuth.instance;
-//   //final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-//
-//   // Method to authenticate user using Firebase Authentication
-//   Future<bool> authenticateUser(String email, String password) async {
-//     try {
-//       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-//         email: email,
-//         password: password,
-//       );
-//       return userCredential.user != null;
-//     } catch (e) {
-//       print("Error authenticating user: $e");
-//       return false;
-//     }
-//   }
-//
-//   // Method to get user role from Firestore
-//   Future<String?> getUserRole(String email) async {
-//     try {
-//       DocumentSnapshot userSnapshot = await _firestore
-//           .collection('users')
-//           .where('email', isEqualTo: email)
-//           .get()
-//           .then((value) => value.docs.first);
-//
-//       return userSnapshot.get('userRole');
-//     } catch (e) {
-//       print("Error getting user role: $e");
-//       return null;
-//     }
-//   }
-// }
